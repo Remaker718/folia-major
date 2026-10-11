@@ -93,7 +93,7 @@ import { useTranscodeFallback } from './hooks/useTranscodeFallback';
 import { useAutomixDecks, type AutomixDeckId } from './services/automix/useAutomixDecks';
 import { usePlaybackInteractionBridge } from './hooks/usePlaybackInteractionBridge';
 import { usePersonalFmModeController } from './hooks/usePersonalFmModeController';
-import { useHeartbeatModeStore } from './stores/useHeartbeatModeStore';
+import { selectHeartbeatSequentialPlayback, useHeartbeatModeStore } from './stores/useHeartbeatModeStore';
 import { PERSONAL_FM_MODE_COMMAND_ID } from './components/command-palette/commands/fmModeCommand';
 import { usePlaybackUiEffects } from './hooks/usePlaybackUiEffects';
 import { useLibraryPlaybackController } from './hooks/useLibraryPlaybackController';
@@ -512,8 +512,8 @@ export default function App() {
     // control below keeps editing the per-song value alone.
     const effectiveLyricTimelineOffsetMs = lyricTimelineOffsetMs + globalLyricTimelineOffsetMs;
 
-    const isHeartbeatMode = useHeartbeatModeStore(state => state.session !== null);
-    const effectiveLoopMode: StageLoopMode = isHeartbeatMode ? 'off' : loopMode;
+    const heartbeatSequential = useHeartbeatModeStore(selectHeartbeatSequentialPlayback);
+    const effectiveLoopMode: StageLoopMode = heartbeatSequential ? 'off' : loopMode;
 
     const getTargetPlaybackVolume = useCallback(() => (isMuted ? 0 : volume), [isMuted, volume]);
 

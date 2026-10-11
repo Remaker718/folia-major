@@ -64,6 +64,10 @@ export async function startHeartbeatMode(playSong: PlaySong): Promise<boolean> {
     if (!canStartHeartbeatMode() || useHeartbeatModeStore.getState().loading) return false;
     const owner = currentOwner()!;
     const startingPlayback = usePlaybackStore.getState();
+    const previous = useHeartbeatModeStore.getState();
+    const originalPlayback = previous.originalPlayback ?? (previous.pendingReturn
+        ? { queue: previous.pendingReturn.originalQueue, currentSong: previous.pendingReturn.originalCurrentSong }
+        : { queue: [...startingPlayback.playQueue], currentSong: startingPlayback.currentSong });
     const startingSongKey = currentSongKey();
     const id = useHeartbeatModeStore.getState().begin();
     const sessionOwner = { id, providerId: owner.providerId, userId: owner.userId };
@@ -100,7 +104,10 @@ export async function startHeartbeatMode(playSong: PlaySong): Promise<boolean> {
         let committed = false;
         const stopObserving = usePlaybackStore.subscribe(playback => {
             if (playback.playQueue.length === queue.length
-                && queue.every((song, index) => isSamePlaybackSong(song, playback.playQueue[index]))) committed = true;
+                && queue.every((song, index) => isSamePlaybackSong(song, playback.playQueue[index]))) {
+                committed = true;
+                if (ownsSession(session)) useHeartbeatModeStore.setState({ originalPlayback });
+            }
         });
         try { await playSong(seed, queue, false, { heartbeatSessionId: id }); }
         finally { stopObserving(); }
@@ -166,6 +173,11 @@ export function watchHeartbeatLifetime(): () => void {
         invalidate();
     });
     const offPlayback = usePlaybackStore.subscribe((playback, previous) => {
+        const pending = useHeartbeatModeStore.getState().pendingReturn;
+        if (pending && (playback.activePlaybackContext !== 'main' || playback.isFmMode
+            || !playback.currentSong || getPlaybackSongKey(playback.currentSong) !== pending.songKey)) {
+            useHeartbeatModeStore.setState({ pendingReturn: null });
+        }
         const session = useHeartbeatModeStore.getState().session;
         if (session && playback.currentSong !== previous.currentSong && playback.currentSong) {
             const source = getPlaybackSourceRef(playback.currentSong);

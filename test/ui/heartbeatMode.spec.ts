@@ -15,6 +15,17 @@ const rawSong = (id: number, name: string) => ({
     al: { id: 141, name: 'Heartbeat Album', picUrl: svgDataUrl('Heart', '#be185d') }, dt: 120_000,
 });
 const songs = [rawSong(seedId, 'Liked Seed'), rawSong(recommendationId, 'Heartbeat Recommendation'), rawSong(nextId, 'Heartbeat Refill')];
+const ordinarySongs = [
+    { id: 14101, name: 'Ordinary Previous' },
+    { id: 14102, name: 'Ordinary Interrupted' },
+    { id: 14103, name: 'Ordinary Next' },
+].map(song => ({
+    ...song,
+    artists: [{ id: 142, name: 'Ordinary Artist' }],
+    album: { id: 143, name: 'Ordinary Album' },
+    durationMs: 120_000,
+    sourceRef: { kind: 'online' as const, providerId: 'netease' as const, mediaId: String(song.id) },
+}));
 const likedPlaylist = {
     ...neteaseFixtures.playlists[0], id: likedPlaylistId, name: 'My Liked Songs', specialType: 5,
     creator: neteaseFixtures.profile, trackCount: 1,
@@ -31,15 +42,18 @@ const snapshot = (page: Page) => page.evaluate(async () => {
     ]);
     const playback = usePlaybackStore.getState();
     const heartbeat = useHeartbeatModeStore.getState();
+    const audio = Array.from(document.querySelectorAll('audio')).find(element => element.getAttribute('src') === playback.audioSrc);
     return {
         songId: playback.currentSong ? String(playback.currentSong.id) : null,
         queue: playback.playQueue.map((song: { id: string | number }) => String(song.id)),
         audioSrc: playback.audioSrc as string | null,
         playerState: playback.playerState as string,
         active: heartbeat.session !== null,
+        returning: heartbeat.pendingReturn !== null,
         loading: heartbeat.loading as boolean,
         fm: playback.isFmMode as boolean,
         storedLoop: useAudioSettingsStore.getState().loopMode as string,
+        audio: audio ? { src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, loop: audio.loop } : null,
     };
 });
 
@@ -65,7 +79,7 @@ async function cachePlayableSongs(page: Page) {
             await saveAudioBlob(getSongResourceCacheKey('audio', song), blob);
             await saveToCache(getSongResourceCacheKey('lyric', song), { lines: [] });
         }));
-    }, { bytes: Array.from(audio.subarray(0, fixture.length)), length: audio.length, ids: songs.map(song => song.id) });
+    }, { bytes: Array.from(audio.subarray(0, fixture.length)), length: audio.length, ids: [...songs, ...ordinarySongs].map(song => song.id) });
 }
 
 async function openHeartbeatApp(page: Page, mode: 'logged-in' | 'guest' = 'logged-in') {
@@ -117,8 +131,34 @@ async function searchCommand(page: Page, query: string) {
     await palette(page).getByRole('combobox').fill(query);
 }
 
-test('radio Heartbeat card starts a liked seed, next refills sequentially, and stopping preserves playback', async ({ page }) => {
+/** Let the browser finish actual playable media: a synthetic event would miss a stuck loop attribute. */
+async function finishCurrentAudio(page: Page) {
+    const endedNaturally = await page.evaluate(async () => {
+        const playbackPath = '/src/stores/usePlaybackStore.ts';
+        const { usePlaybackStore } = await import(playbackPath);
+        const audio = Array.from(document.querySelectorAll('audio')).find(element => element.getAttribute('src') === usePlaybackStore.getState().audioSrc);
+        if (!audio || !Number.isFinite(audio.duration)) throw new Error('Missing loaded Heartbeat audio');
+        return new Promise<boolean>((resolve, reject) => {
+            const timeout = window.setTimeout(() => reject(new Error('Heartbeat audio did not end naturally')), 10_000);
+            audio.addEventListener('ended', event => {
+                window.clearTimeout(timeout);
+                resolve(event.isTrusted);
+            }, { once: true });
+            audio.currentTime = audio.duration - 0.2;
+        });
+    });
+    expect(endedNaturally).toBe(true);
+}
+
+test('stopping Heartbeat finishes the current song then resumes the original queue and repeat setting', async ({ page }) => {
     const calls = await openHeartbeatApp(page);
+    // Start with a known ordinary queue and a cursor in its middle, before using real Heartbeat controls.
+    await page.evaluate(async queue => {
+        const playbackPath = '/src/stores/usePlaybackStore.ts';
+        const { usePlaybackStore } = await import(playbackPath);
+        usePlaybackStore.getState().setPlayQueue(queue);
+        usePlaybackStore.getState().setCurrentSong(queue[1]);
+    }, ordinarySongs);
     // The carousel's first click centers a non-focused card; its second click activates it.
     await heartbeatHeading(page).click();
     await heartbeatHeading(page).click();
@@ -139,6 +179,14 @@ test('radio Heartbeat card starts a liked seed, next refills sequentially, and s
     ]);
     await expect.poll(async () => (await snapshot(page)).queue).toEqual(songs.map(song => String(song.id)));
     await expect.poll(async () => (await snapshot(page)).playerState).toBe('PLAYING');
+    // A non-zero playback position makes an accidental restart visible in the exit assertion.
+    await page.evaluate(async () => {
+        const playbackPath = '/src/stores/usePlaybackStore.ts';
+        const { usePlaybackStore } = await import(playbackPath);
+        const audio = Array.from(document.querySelectorAll('audio')).find(element => element.getAttribute('src') === usePlaybackStore.getState().audioSrc);
+        if (!audio) throw new Error('Missing active Heartbeat audio element');
+        audio.currentTime = 30;
+    });
     await page.getByTestId('panel-toggle').getByRole('button').last().click();
     await page.locator('[data-ponder-panel-tab-button="queue"]').click();
     const heartbeatStatus = page.getByTestId('heartbeat-status');
@@ -149,23 +197,60 @@ test('radio Heartbeat card starts a liked seed, next refills sequentially, and s
     await expect.poll(async () => (await snapshot(page)).active).toBe(false);
     await expect(heartbeatStatus).toBeHidden();
     const afterStop = await snapshot(page);
-    expect(afterStop.playerState).toBe('PLAYING');
-    expect({ song: afterStop.songId, queue: afterStop.queue, audio: afterStop.audioSrc, loop: afterStop.storedLoop })
-        .toEqual({ song: beforeStop.songId, queue: beforeStop.queue, audio: beforeStop.audioSrc, loop: 'one' });
+    expect(afterStop).toMatchObject({
+        songId: beforeStop.songId,
+        audioSrc: beforeStop.audioSrc,
+        playerState: 'PLAYING',
+        returning: true,
+        storedLoop: 'one',
+        queue: [String(ordinarySongs[0].id), String(recommendationId), ...ordinarySongs.slice(1).map(song => String(song.id))],
+        audio: { src: beforeStop.audio?.src, paused: false, loop: false },
+    });
+    expect(afterStop.audio!.time).toBeGreaterThanOrEqual(beforeStop.audio!.time);
+    await expect(page.getByText('Ordinary Interrupted', { exact: true })).toBeVisible();
+    await expect(page.getByText('Heartbeat Refill', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Liked Seed', { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath('heartbeat-exit-return-queue.png'), animations: 'disabled' });
+
+    await finishCurrentAudio(page);
+    await expect.poll(async () => (await snapshot(page)).songId).toBe(String(ordinarySongs[1].id));
+    await expect.poll(async () => (await snapshot(page)).playerState).toBe('PLAYING');
+    await expect.poll(async () => (await snapshot(page)).audio?.loop).toBe(true);
+    expect(await snapshot(page)).toMatchObject({
+        active: false,
+        returning: false,
+        queue: ordinarySongs.map(song => String(song.id)),
+        storedLoop: 'one',
+        audio: { paused: false, loop: true },
+    });
+    expect(calls).toHaveLength(2);
 });
 
-test('command palette starts Heartbeat and switches to its stop action', async ({ page }) => {
+test('command palette exits Heartbeat without an original queue and stops after the current song', async ({ page }) => {
     const calls = await openHeartbeatApp(page);
     await searchCommand(page, 'heartbeat');
     await palette(page).getByText('Start Heartbeat', { exact: true }).click();
     await expect(palette(page)).toBeHidden();
     await expect.poll(async () => (await snapshot(page)).active).toBe(true);
     await expect.poll(async () => (await snapshot(page)).songId).toBe(String(seedId));
+    await expect.poll(async () => (await snapshot(page)).playerState).toBe('PLAYING');
     expect(calls).toHaveLength(1);
     await searchCommand(page, 'heartbeat');
     await expect(palette(page).getByText('Stop Heartbeat', { exact: true })).toBeVisible();
     await palette(page).getByText('Stop Heartbeat', { exact: true }).click();
     await expect.poll(async () => (await snapshot(page)).active).toBe(false);
+    expect(await snapshot(page)).toMatchObject({
+        songId: String(seedId),
+        queue: [String(seedId)],
+        playerState: 'PLAYING',
+        returning: true,
+        storedLoop: 'one',
+        audio: { paused: false, loop: false },
+    });
+    await finishCurrentAudio(page);
+    await expect.poll(async () => (await snapshot(page)).playerState).toBe('IDLE');
+    expect(await snapshot(page)).toMatchObject({ active: false, returning: false, queue: [], storedLoop: 'one' });
+    expect(calls).toHaveLength(1);
 });
 
 test('Bravais radio shortcut starts Heartbeat through the real home surface', async ({ page }) => {

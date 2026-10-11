@@ -8,7 +8,7 @@ export default {
     "stop": "Hentikan Heartbeat",
     "loading": "Memuat rekomendasi Heartbeat…",
     "started": "Heartbeat aktif. Rekomendasi baru ditambahkan saat Anda mendengarkan.",
-    "stopped": "Heartbeat dihentikan. Lagu dan antrean saat ini tetap dipertahankan.",
+    "stopped": "Heartbeat dihentikan. Setelah lagu ini selesai, antrean sebelumnya dilanjutkan.",
     "emptyLikes": "Tambahkan lagu yang dapat diputar ke favorit NetEase untuk memulai Heartbeat.",
     "emptyRecommendations": "Tidak ada rekomendasi Heartbeat baru dari NetEase. Antrean tetap dipertahankan.",
     "failed": "Gagal memuat rekomendasi Heartbeat. Coba lagi nanti."
@@ -587,7 +587,7 @@ export default {
       "playback-volume": { "title": "Volume", "description": "Atur volume pemutaran" },
       "playback-fm-mode": { "title": "Mode FM Pribadi", "description": "Ganti mode atau suasana FM Pribadi" },
       "heartbeat-start": { "title": "Mulai Heartbeat", "description": "Putar lagu favorit Anda dengan rekomendasi NetEase" },
-      "heartbeat-stop": { "title": "Hentikan Heartbeat", "description": "Hentikan rekomendasi dan lanjutkan antrean saat ini" },
+      "heartbeat-stop": { "title": "Hentikan Heartbeat", "description": "Selesaikan lagu ini, lalu lanjutkan antrean sebelumnya" },
       "settings-help": { "title": "Buka Bantuan", "description": "Buka panduan dan pintasan" },
       "ponder-current-page": { "title": "Ponder halaman ini", "description": "Buka panduan interaktif untuk halaman saat ini" },
       "settings-options": { "title": "Buka Opsi", "description": "Buka pusat opsi" },

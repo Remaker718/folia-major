@@ -54,7 +54,7 @@ beforeEach(() => {
     playSong.mockImplementation((currentSong, playQueue) => {
         usePlaybackStore.setState({ currentSong, ...(playQueue ? { playQueue } : {}), isFmMode: false });
     });
-    useHeartbeatModeStore.setState({ session: null, loading: false, generation: 0 });
+    useHeartbeatModeStore.setState({ session: null, loading: false, generation: 0, originalPlayback: null, pendingReturn: null });
     useOnlineProviderAccountStore.setState({ accounts: {}, activeProviderId: 'netease' });
     useOnlineProviderAccountStore.getState().updateAccount('netease', {
         status: 'authenticated', user: { id: 'listener', nickname: 'Listener' }, collections: [likedPlaylist],

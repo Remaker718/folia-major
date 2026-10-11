@@ -11,7 +11,8 @@ import { openAddToPlaylist, useAddToPlaylistStore } from '../../../stores/useAdd
 import { useInteractionSettingsStore } from '../../../stores/useInteractionSettingsStore';
 import { usePlaybackStore } from '../../../stores/usePlaybackStore';
 import { isLocalPlaybackSong } from '../../../utils/appPlaybackGuards';
-import { canStartHeartbeatMode, startHeartbeatMode, stopHeartbeatMode } from '../../../services/heartbeatPlayback';
+import { canStartHeartbeatMode, startHeartbeatMode } from '../../../services/heartbeatPlayback';
+import { exitHeartbeatMode } from '../playback/heartbeatQueueReturn';
 import { useHeartbeatModeStore } from '../../../stores/useHeartbeatModeStore';
 
 // src/components/app/command-palette-context/buildAppOwnedCommandContext.ts
@@ -74,7 +75,7 @@ export const buildPlaybackCommandContext = (
         isHeartbeatLoading: useHeartbeatModeStore.getState().loading,
         canStartHeartbeat: canStartHeartbeatMode(),
         startHeartbeat: () => startHeartbeatMode(deps.playSong),
-        stopHeartbeat: stopHeartbeatMode,
+        stopHeartbeat: exitHeartbeatMode,
         volume: audio.volume,
         isMuted: audio.isMuted,
         setVolume: audio.handleSetVolume,

@@ -6,7 +6,8 @@ import { getSongReplacement, isSongUnavailable } from '../services/onlineMusic/s
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { omni } from '../services/onlineMusic/omni';
 import { refillHeartbeatQueue, stopHeartbeatMode, watchHeartbeatLifetime } from '../services/heartbeatPlayback';
-import { useHeartbeatModeStore } from '../stores/useHeartbeatModeStore';
+import { selectHeartbeatSequentialPlayback, useHeartbeatModeStore } from '../stores/useHeartbeatModeStore';
+import { finishEmptyHeartbeatReturn, prepareHeartbeatReturnQueue } from '../components/app/playback/heartbeatQueueReturn';
 import { getCachedSongCoverUrl, hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
 import { getPrefetchedData, invalidateAndRefetch, prefetchNearbySongs } from '../services/prefetchService';
 import { retireBlobUrl } from '../services/playbackBlobUrls';
@@ -189,8 +190,8 @@ export function usePlaybackQueueController({
     const audioQuality = useAudioSettingsStore(state => state.audioQuality);
     const queueAddBehavior = useAudioSettingsStore(state => state.queueAddBehavior);
     const storedLoopMode = useAudioSettingsStore(state => state.loopMode);
-    const heartbeatSession = useHeartbeatModeStore(state => state.session);
-    const loopMode = heartbeatSession ? 'off' : storedLoopMode;
+    const heartbeatSequential = useHeartbeatModeStore(selectHeartbeatSequentialPlayback);
+    const loopMode = heartbeatSequential ? 'off' : storedLoopMode;
     const heartbeatAdvanceId = useRef(0);
     useEffect(watchHeartbeatLifetime, []);
     const activePlaybackContext = usePlaybackStore(state => state.activePlaybackContext);
@@ -506,7 +507,7 @@ export function usePlaybackQueueController({
         let prefetched: ReturnType<typeof getPrefetchedData> = null;
         let preloadedOnlineAudioResult: Awaited<ReturnType<typeof loadOnlineSongAudioSource>> | null = null;
         const queueContext = queue.length > 0 ? queue : playQueue.length === 0 ? [song] : playQueue;
-        const newQueue = getPlayableOnlineQueue(queueContext);
+        const newQueue = getPlayableOnlineQueue(prepareHeartbeatReturnQueue(song, queueContext));
         const skipCount = options.unavailableSkipCount ?? 0;
         playbackAutoSkipCountRef.current = skipCount;
         // For the plays this one defers (the replacement dialog, the timed skip): they start after a
@@ -894,6 +895,7 @@ export function usePlaybackQueueController({
                 audioRef.current.pause();
             }
             setPlayerState(PlayerState.IDLE);
+            finishEmptyHeartbeatReturn();
         };
 
         // An emptied queue still has to stop playback at the end of the current track; returning

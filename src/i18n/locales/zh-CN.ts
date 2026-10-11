@@ -8,7 +8,7 @@ export default {
     "stop": "退出心动模式",
     "loading": "正在加载心动推荐…",
     "started": "心动模式已开启，将在播放时继续添加推荐歌曲。",
-    "stopped": "已退出心动模式，保留当前歌曲和播放队列。",
+    "stopped": "已退出心动模式，当前歌曲播完后接回原播放队列。",
     "emptyLikes": "请先在网易云「我喜欢的音乐」中添加可播放歌曲。",
     "emptyRecommendations": "网易云暂无新的心动推荐，已保留当前播放队列。",
     "failed": "加载心动推荐失败，请稍后重试。"
@@ -589,7 +589,7 @@ export default {
       "playback-volume": { "title": "音量条", "description": "调整播放音量" },
       "playback-fm-mode": { "title": "私人 FM 模式", "description": "切换私人 FM 的模式或场景" },
       "heartbeat-start": { "title": "开启心动模式", "description": "从我喜欢的音乐开始，接着听网易云推荐" },
-      "heartbeat-stop": { "title": "退出心动模式", "description": "停止添加推荐，保留当前歌曲和播放队列" },
+      "heartbeat-stop": { "title": "退出心动模式", "description": "当前歌曲播完后接回原播放队列" },
       "settings-help": { "title": "打开帮助", "description": "打开帮助和快捷键" },
       "ponder-current-page": { "title": "思索当前页面", "description": "打开当前页面的交互式介绍" },
       "settings-options": { "title": "打开选项", "description": "打开设置中心" },

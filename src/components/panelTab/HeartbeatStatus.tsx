@@ -1,11 +1,11 @@
 import { HeartPulse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useHeartbeatModeStore } from '../../stores/useHeartbeatModeStore';
-import { stopHeartbeatMode } from '../../services/heartbeatPlayback';
+import { exitHeartbeatMode } from '../app/playback/heartbeatQueueReturn';
 import { setStatusMessage } from '../../stores/useStatusMessageStore';
 
 // src/components/panelTab/HeartbeatStatus.tsx
-// A persistent queue status with an explicit exit that keeps the current track and queue.
+// A persistent queue status with an explicit return to the ordinary queue after the current track.
 
 export const HeartbeatStatus = () => {
     const { t } = useTranslation();
@@ -17,7 +17,7 @@ export const HeartbeatStatus = () => {
             <HeartPulse size={16} aria-hidden />
             <span className="flex-1">{t(loading ? 'heartbeat.loading' : 'heartbeat.active')}</span>
             <button type="button" className="rounded px-2 py-1 hover:bg-current/10" onClick={() => {
-                stopHeartbeatMode();
+                exitHeartbeatMode();
                 setStatusMessage({ type: 'info', text: t('heartbeat.stopped') });
             }}>{t('heartbeat.stop')}</button>
         </div>

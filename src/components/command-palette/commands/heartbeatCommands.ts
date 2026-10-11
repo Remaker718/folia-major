@@ -21,7 +21,7 @@ export const heartbeatCommands: CommandPaletteCommand[] = [
         id: 'heartbeat-stop',
         group: 'playback',
         title: 'Stop Heartbeat',
-        description: 'Stop recommendations and keep the current queue playing',
+        description: 'Finish the current track, then resume your previous queue',
         keywords: ['end recommendations', '停止心动', '退出心动模式'],
         icon: Square,
         isAvailable: context => Boolean(context?.playback.isHeartbeatMode || context?.playback.isHeartbeatLoading),

@@ -39,6 +39,8 @@ describe('home special cards', () => {
         expect(playlists.map(card => resolveLibraryHomeSpecial(card, 'online'))).toEqual(['liked', 'cloud', null]);
         const radio = buildOnlineRadioCards({ dailyCoverUrl: '', dailyCount: 3, recommended: [collection({ id: 'rec' })] }, { t });
         expect(radio.map(card => resolveLibraryHomeSpecial(card, 'online'))).toEqual(['personal-fm', 'daily', null]);
+        const heartbeat = buildOnlineRadioCards({ dailyCoverUrl: '', dailyCount: 0, recommended: [] }, { t, supportsHeartbeat: true });
+        expect(heartbeat.map(card => resolveLibraryHomeSpecial(card, 'online'))).toEqual(['personal-fm', 'heartbeat', 'daily']);
         // 收藏专辑上的 isLiked 不是「我喜欢的音乐」。
         expect(resolveLibraryHomeSpecial({ id: 'al', type: 'album', raw: { isLiked: true } }, 'online')).toBeNull();
     });

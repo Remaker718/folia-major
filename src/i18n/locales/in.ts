@@ -1,6 +1,18 @@
 
 
 export default {
+  "heartbeat": {
+    "title": "Heartbeat",
+    "description": "Lagu favorit Anda dengan rekomendasi NetEase",
+    "active": "Heartbeat aktif",
+    "stop": "Hentikan Heartbeat",
+    "loading": "Memuat rekomendasi Heartbeat…",
+    "started": "Heartbeat aktif. Rekomendasi baru ditambahkan saat Anda mendengarkan.",
+    "stopped": "Heartbeat dihentikan. Lagu dan antrean saat ini tetap dipertahankan.",
+    "emptyLikes": "Tambahkan lagu yang dapat diputar ke favorit NetEase untuk memulai Heartbeat.",
+    "emptyRecommendations": "Tidak ada rekomendasi Heartbeat baru dari NetEase. Antrean tetap dipertahankan.",
+    "failed": "Gagal memuat rekomendasi Heartbeat. Coba lagi nanti."
+  },
   "libraryBravais": {
     "suiteName": "Dinding Bravais",
     "homeTitle": "Pustaka",
@@ -574,6 +586,8 @@ export default {
       "queue": { "title": "Antrean", "description": "Cari antrean; gunakan @ untuk metadata dan -- untuk aksi massal" },
       "playback-volume": { "title": "Volume", "description": "Atur volume pemutaran" },
       "playback-fm-mode": { "title": "Mode FM Pribadi", "description": "Ganti mode atau suasana FM Pribadi" },
+      "heartbeat-start": { "title": "Mulai Heartbeat", "description": "Putar lagu favorit Anda dengan rekomendasi NetEase" },
+      "heartbeat-stop": { "title": "Hentikan Heartbeat", "description": "Hentikan rekomendasi dan lanjutkan antrean saat ini" },
       "settings-help": { "title": "Buka Bantuan", "description": "Buka panduan dan pintasan" },
       "ponder-current-page": { "title": "Ponder halaman ini", "description": "Buka panduan interaktif untuk halaman saat ini" },
       "settings-options": { "title": "Buka Opsi", "description": "Buka pusat opsi" },

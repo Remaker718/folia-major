@@ -5,6 +5,8 @@ import { applyOnlineAudioSourceMetadata, loadOnlineSongAudioSource, loadOnlineSo
 import { getSongReplacement, isSongUnavailable } from '../services/onlineMusic/songAvailability';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { omni } from '../services/onlineMusic/omni';
+import { refillHeartbeatQueue, stopHeartbeatMode, watchHeartbeatLifetime } from '../services/heartbeatPlayback';
+import { useHeartbeatModeStore } from '../stores/useHeartbeatModeStore';
 import { getCachedSongCoverUrl, hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
 import { getPrefetchedData, invalidateAndRefetch, prefetchNearbySongs } from '../services/prefetchService';
 import { retireBlobUrl } from '../services/playbackBlobUrls';
@@ -186,7 +188,11 @@ export function usePlaybackQueueController({
     const { t } = useTranslation();
     const audioQuality = useAudioSettingsStore(state => state.audioQuality);
     const queueAddBehavior = useAudioSettingsStore(state => state.queueAddBehavior);
-    const loopMode = useAudioSettingsStore(state => state.loopMode);
+    const storedLoopMode = useAudioSettingsStore(state => state.loopMode);
+    const heartbeatSession = useHeartbeatModeStore(state => state.session);
+    const loopMode = heartbeatSession ? 'off' : storedLoopMode;
+    const heartbeatAdvanceId = useRef(0);
+    useEffect(watchHeartbeatLifetime, []);
     const activePlaybackContext = usePlaybackStore(state => state.activePlaybackContext);
     const currentSong = usePlaybackStore(state => state.currentSong);
     const playQueue = usePlaybackStore(state => state.playQueue);
@@ -446,6 +452,14 @@ export function usePlaybackQueueController({
         isFmCall: boolean = false,
         options: PlaybackNavigationOptions = {}
     ) => {
+        // Only navigation within this live queue may keep recommendation mode. A new play also
+        // cancels an in-flight start before an extension hook or an audio lookup can await.
+        const heartbeat = useHeartbeatModeStore.getState();
+        if (options.heartbeatSessionId !== undefined) {
+            if (heartbeat.session?.id !== options.heartbeatSessionId) return;
+        } else if (heartbeat.session || heartbeat.loading) {
+            stopHeartbeatMode();
+        }
         // Extension layers (Folium `playback.beforePlay`) may cancel or redirect this play.
         // Without an installed hook this is skipped entirely, so the common path stays synchronous.
         // The hook is async, so a later playSong may finish its hook first; this call then drops
@@ -455,7 +469,8 @@ export function usePlaybackQueueController({
         const allowedSong = !options.isAutomixAdvance && hasBeforePlayHook()
             ? await runBeforePlayHook(requestedSong)
             : requestedSong;
-        if (!allowedSong || playSongCallIdRef.current !== playSongCallId) {
+        if (!allowedSong || playSongCallIdRef.current !== playSongCallId
+            || (options.heartbeatSessionId !== undefined && useHeartbeatModeStore.getState().session?.id !== options.heartbeatSessionId)) {
             return;
         }
         const song = allowedSong;
@@ -484,7 +499,8 @@ export function usePlaybackQueueController({
         }
 
         const playbackRequestId = ++playbackRequestIdRef.current;
-        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
+        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId
+            && (options.heartbeatSessionId === undefined || useHeartbeatModeStore.getState().session?.id === options.heartbeatSessionId);
         const isLocal = isLocalPlaybackSong(song);
         const isNavidrome = isNavidromePlaybackSong(song);
         let prefetched: ReturnType<typeof getPrefetchedData> = null;
@@ -598,25 +614,31 @@ export function usePlaybackQueueController({
                 return;
             }
         } catch (error) {
+            if (!isLatestPlaybackRequest()) return;
             console.error('[App] Failed to fetch song URL:', error);
             setStatusMsg({ type: 'error', text: t('status.playbackError') });
             setIsLyricsLoading(false);
             return;
         }
 
-        shouldAutoPlayRef.current = true;
         const songKey = getPlaybackSongKey(song);
         const resolvedSong = preloadedOnlineAudioResult?.kind === 'ok'
             ? applyOnlineAudioSourceMetadata(song, preloadedOnlineAudioResult.replayGain)
             : song;
         const resolvedQueue = replacePlaybackSongInQueue(newQueue, resolvedSong);
+        const onlineLyricsState = await loadOnlineLyricsState(song);
+        if (!isLatestPlaybackRequest()) {
+            if (preloadedOnlineAudioResult?.kind === 'ok' && preloadedOnlineAudioResult.blobUrl) {
+                URL.revokeObjectURL(preloadedOnlineAudioResult.blobUrl);
+            }
+            return;
+        }
+
+        shouldAutoPlayRef.current = true;
         currentSongRef.current = songKey;
         pendingResumeTimeRef.current = null;
         lastAudioRecoverySourceRef.current = null;
         currentOnlineAudioUrlFetchedAtRef.current = null;
-
-        const onlineLyricsState = await loadOnlineLyricsState(song);
-
         setLyrics(null);
         setCurrentLineIndex(-1);
         currentTime.set(0);
@@ -898,6 +920,23 @@ export function usePlaybackQueueController({
         const currentSongKey = getPlaybackSongKey(heldSong ?? options?.fromSong ?? currentSong);
         const currentIndex = playQueue.findIndex(song => getPlaybackSongKey(song) === currentSongKey);
 
+        const heartbeat = useHeartbeatModeStore.getState().session;
+        if (heartbeat && currentIndex >= playQueue.length - 2) {
+            const advanceId = ++heartbeatAdvanceId.current;
+            const playCallId = playSongCallIdRef.current;
+            const nextQueue = await refillHeartbeatQueue(playQueue);
+            if (!nextQueue || advanceId !== heartbeatAdvanceId.current
+                || playCallId !== playSongCallIdRef.current
+                || useHeartbeatModeStore.getState().session?.id !== heartbeat.id) return;
+            const nextSong = nextQueue[currentIndex + 1];
+            if (nextSong) {
+                void playSong(nextSong, nextQueue, false, {
+                    ...options, shouldNavigateToPlayer, heartbeatSessionId: heartbeat.id,
+                });
+            } else if (options?.allowStopOnMissing) stopAtQueueEnd();
+            return;
+        }
+
         if (isFmMode && currentIndex >= playQueue.length - 2) {
             try {
                 const fmSongs = await omni.getPersonalFm();
@@ -928,6 +967,7 @@ export function usePlaybackQueueController({
 
         if (nextIndex >= 0) {
             void playSong(playQueue[nextIndex], playQueue, isFmMode, {
+                heartbeatSessionId: heartbeat?.id,
                 shouldNavigateToPlayer,
                 unavailableSkipCount: options?.unavailableSkipCount,
                 isAutomixAdvance: options?.isAutomixAdvance,
@@ -958,6 +998,7 @@ export function usePlaybackQueueController({
 
         if (prevIndex >= 0) {
             void playSong(playQueue[prevIndex], playQueue, isFmMode, {
+                heartbeatSessionId: useHeartbeatModeStore.getState().session?.id,
                 shouldNavigateToPlayer: shouldNavigateToPlayerOnTrackChange,
             });
         }
@@ -1238,7 +1279,9 @@ export function usePlaybackQueueController({
                 if (!selectedSong) {
                     throw new Error('Queue item was not found.');
                 }
-                await playSong(selectedSong, baseQueue, isFmMode, { shouldNavigateToPlayer: true });
+                await playSong(selectedSong, baseQueue, isFmMode, {
+                    shouldNavigateToPlayer: true, heartbeatSessionId: useHeartbeatModeStore.getState().session?.id,
+                });
                 await complete(
                     true,
                     null,
@@ -1247,6 +1290,7 @@ export function usePlaybackQueueController({
                 );
                 return;
             } else if (request.action === 'clear') {
+                stopHeartbeatMode();
                 nextQueue = currentSong ? [currentSong] : [];
                 diffDraft = currentSong ? buildReloadQueueDiffDraft() : { ops: [{ op: 'clear' }] };
             } else {
@@ -1312,6 +1356,7 @@ export function usePlaybackQueueController({
 
     const clearQueue = useCallback(() => {
         if (isNowPlayingStageActive) return;
+        stopHeartbeatMode();
         if (!playQueue || playQueue.length === 0) return;
 
         setPlayQueue([]);

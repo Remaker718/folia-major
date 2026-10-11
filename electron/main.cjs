@@ -4460,6 +4460,13 @@ function startMainWindowClickThroughUnlockHoverMonitor() {
   if (mainWindowClickThroughUnlockHoverTimer) {
     return;
   }
+  // Wayland exposes neither window position nor a global cursor: getBounds() sits at (0,0) and
+  // getCursorScreenPoint() stays (0,0), so this poll would read "outside" every tick and fight the
+  // renderer's mousemove hit test (the unlock button blinks every interval and can't be clicked).
+  // The renderer keeps receiving mouse-move while ignoring there, so it drives the hotspot alone.
+  if (process.platform === 'linux' && onWayland) {
+    return;
+  }
 
   syncMainWindowClickThroughUnlockHoverFromCursor();
   mainWindowClickThroughUnlockHoverTimer = setInterval(

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { type ConfigEnv, type UserConfig, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { commandPinyinPlugin } from './dev/pinyin/commandPinyinPlugin.mjs';
-import { normalizeBuildCommit, resolveBuildRepo } from './dev/build/buildIdentity.mjs';
+import { normalizeBuildCommit, resolveBuildKind, resolveBuildRepo } from './dev/build/buildIdentity.mjs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -181,6 +181,8 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
   // 请求 AMLL 官方 API 时 UA 里的构建身份，见 dev/build/buildIdentity.mjs
   const buildRepo = resolveBuildRepo(process.env, () => execSync('git remote get-url origin', { stdio: ['ignore', 'pipe', 'ignore'] }).toString());
   const buildCommit = normalizeBuildCommit(commitHash);
+  // 官方 / 自部署 / 非官方：设置里的版本号、扫码诊断报告和反馈入口都会读它
+  const buildKind = resolveBuildKind(process.env);
 
   const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'Realeco';
   const appReleaseChannel = process.env.APP_RELEASE_CHANNEL?.trim().toLowerCase() || 'realeco';
@@ -275,6 +277,8 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
       '__GIT_BRANCH__': JSON.stringify(gitBranch),
       '__BUILD_REPO__': JSON.stringify(buildRepo),
       '__BUILD_COMMIT__': JSON.stringify(buildCommit),
+      '__BUILD_KIND__': JSON.stringify(buildKind.kind),
+      '__BUILD_HOST__': JSON.stringify(buildKind.host ?? ''),
       '__APP_VERSION__': JSON.stringify(JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version),
       '__APP_VERSION_LABEL__': JSON.stringify(appVersionLabel),
       '__APP_RELEASE_CHANNEL__': JSON.stringify(appReleaseChannel),

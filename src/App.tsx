@@ -75,7 +75,7 @@ import { useQqLibrary } from './hooks/useQqLibrary';
 import { useBodianLibrary } from './hooks/useBodianLibrary';
 import { useLibraryAccountController } from './library/app/useLibraryAccountController';
 import { createLibraryAccountSwitchCleanupPort } from './library/app/createLibraryAccountPort';
-import { useLibraryStageToolsPort } from './library/app/useLibraryStageToolsPort';
+import { useAppWallToolsHost } from './components/app/wall-tools/useAppWallToolsHost';
 import { useLibraryAccountProviders } from './library/core/bindings/useLibraryAccount';
 import { resolveActiveProviderSummary } from './library/core/model/accountRules';
 import { useAppPreferences } from './hooks/useAppPreferences';
@@ -991,13 +991,15 @@ export default function App() {
         setLyricsStable,
     ]);
 
-    const { addNavidromeSongsToQueue, applyQueueBatchOperation, removeQueueSong, moveQueueSongToEnd, moveQueueSongToNext } = useMemo(() => createQueueMutations({
+    const { addNavidromeSongsToQueue, applyQueueBatchOperation, removeQueueSong, moveQueueSongToEnd, moveQueueSongToNext, moveQueueSong } = useMemo(() => createQueueMutations({
         currentSong,
         playQueue,
         persistLastPlaybackCache,
         t,
         queueAddBehavior,
-    }), [currentSong, playQueue, persistLastPlaybackCache, t, queueAddBehavior]);
+        audioQuality,
+        userId: user?.id,
+    }), [currentSong, playQueue, persistLastPlaybackCache, t, queueAddBehavior, audioQuality, user?.id]);
 
     // --- Effects ---
 
@@ -2140,16 +2142,24 @@ export default function App() {
         setStatusMsg({ type: 'error', text: t('search.catalogUnavailable') });
     }, [navigateToCollection, setStatusMsg, t]);
 
-    // 资料库墙右下角工具面板的宿主动作（生成主题、队列洗牌、音量预览）：命令面板的同一套命令，端口身份稳定。
-    const stageTools = useLibraryStageToolsPort({
+    // 两面墙（bravais 与 Lattice）右下角工具面板的宿主动作：命令面板的同一套命令与队列操作，host 身份稳定。
+    const wallToolsHost = useAppWallToolsHost({
         invokeCommandById: commandPalette.invokeCommandById,
         canInvokeCommandById: commandPalette.canInvokeCommandById,
         isGeneratingTheme,
         previewVolume: handlePreviewVolume,
+        navigateToPlayer,
+        playQueue,
+        playSong,
+        moveQueueSongToNext,
+        moveQueueSongToEnd,
+        removeQueueSong,
+        moveQueueSong,
+        clearQueue,
+        saveCurrentQueueAsLocalPlaylist,
     });
     const homeModel = useHomeModel({
         account: accountController,
-        stageTools,
         activeProvider,
         playSong,
         navigateToPlayer,
@@ -2696,7 +2706,7 @@ export default function App() {
         >
 
             {/* 首页层、Lattice 与两面墙共用的右下角工具按钮（WallToolsDock：交接时按钮节点不重建）。 */}
-            <WallToolsDockHost>
+            <WallToolsDockHost host={wallToolsHost}>
             {/* Home Mount Point */}
             <div
                 className="absolute inset-0 z-10"
@@ -2765,6 +2775,7 @@ export default function App() {
                                 queue={playQueue}
                                 isDaylight={isDaylight}
                                 onBack={navigateBackFromLattice}
+                                onGoHome={navigateToHome}
                                 onOpenPlayer={navigateToPlayer}
                                 onPlaySong={(song, queue) => {
                                     void playSong(song, queue, false, {

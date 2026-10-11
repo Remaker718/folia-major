@@ -11,7 +11,6 @@ import type {
 } from '../../../types';
 import type { ProviderCollection, ProviderUser } from '../../../types/onlineMusic';
 import type { NavidromeSong } from '../../../types/navidrome';
-import type { LibraryStageToolsPort } from './ports';
 import type { PlaybackNavigationOptions } from '../../../types/appPlayback';
 
 // src/library/core/contracts/home.ts
@@ -81,8 +80,6 @@ export interface LibraryHomeData {
     theme: Theme;
     onOpenSettings?: (initialTab?: 'help' | 'options') => void;
     onOpenLattice?: () => void;
-    /** 墙上工具面板的宿主动作（生成主题、队列洗牌、音量预览）；身份稳定。宿主交给 stage（见 LibrarySuiteStageProps.tools）。 */
-    stageTools?: LibraryStageToolsPort;
     navidromeEnabled?: boolean;
     onPlayAll?: (songs: SongResult[]) => void;
     onAddAllToQueue?: (songs: SongResult[], options?: { suppressToast?: boolean }) => number | void;

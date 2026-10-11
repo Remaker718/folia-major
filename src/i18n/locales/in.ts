@@ -98,7 +98,7 @@ export default {
     "connect": "Hubungkan layanan streaming",
     "noMatch": "Tidak ada yang cocok di halaman ini",
     "shortcuts": "Langsung ke",
-    "special": {"liked": "Lagu Disukai", "cloud": "Cloud Drive", "personal-fm": "FM Pribadi", "daily": "Harian", "all-songs": "Semua Lagu", "local-favorites": "Favorit", "navidrome-random": "Acak", "navidrome-favorites": "Berbintang"}
+    "special": {"liked": "Lagu Disukai", "cloud": "Cloud Drive", "personal-fm": "FM Pribadi", "heartbeat": "Heartbeat", "daily": "Harian", "all-songs": "Semua Lagu", "local-favorites": "Favorit", "navidrome-random": "Acak", "navidrome-favorites": "Berbintang"}
   },
   "libraryTui": {
     "back": "Kembali",

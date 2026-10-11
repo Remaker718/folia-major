@@ -98,7 +98,7 @@ export default {
     "connect": "Connect a streaming service",
     "noMatch": "Nothing on this page matches",
     "shortcuts": "Jump to",
-    "special": {"liked": "Liked Songs", "cloud": "Cloud Drive", "personal-fm": "Personal FM", "daily": "Daily Picks", "all-songs": "All Songs", "local-favorites": "Favorites", "navidrome-random": "Random", "navidrome-favorites": "Starred"}
+    "special": {"liked": "Liked Songs", "cloud": "Cloud Drive", "personal-fm": "Personal FM", "heartbeat": "Heartbeat", "daily": "Daily Picks", "all-songs": "All Songs", "local-favorites": "Favorites", "navidrome-random": "Random", "navidrome-favorites": "Starred"}
   },
   "libraryTui": {
     "back": "Back",

@@ -5,10 +5,22 @@ import type { ProviderCollection } from '@/types/onlineMusic';
 import { buildOnlinePlaylistCards, buildOnlineRadioCards } from '@/library/core/model/homeCards';
 import { buildLocalHomeCards, buildLocalHomeGroups } from '@/library/core/model/localHomeModel';
 import { buildNavidromeSectionCards, EMPTY_NAVIDROME_HOME_DATA } from '@/library/core/model/navidromeHomeModel';
-import { resolveLibraryHomeSpecial } from '@/library/core/model/homeSpecialCards';
+import { LIBRARY_HOME_SPECIAL_ORDER, resolveLibraryHomeSpecial } from '@/library/core/model/homeSpecialCards';
+import en from '@/i18n/locales/en';
+import zhCN from '@/i18n/locales/zh-CN';
+import id from '@/i18n/locales/in';
 
 // test/unit/library/core/homeSpecialCards.test.ts
 // 首页特殊集合的判定：只看身份字段（id、type、isVirtual、来源对象的 isLiked），不看显示名；来源不同时同样的字段含义不同。
+
+it('labels every dynamically named Bravais shortcut in all bundled locales', () => {
+    for (const locale of [en, zhCN, id]) {
+        for (const kind of LIBRARY_HOME_SPECIAL_ORDER) {
+            expect((locale.libraryBravaisHome.special as Record<string, string>)[kind]).toEqual(expect.any(String));
+            expect((locale.libraryBravaisHome.special as Record<string, string>)[kind].trim()).not.toBe('');
+        }
+    }
+});
 
 const t = ((key: string) => `t:${key}`) as unknown as TFunction;
 
